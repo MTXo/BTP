@@ -1,38 +1,59 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 
 namespace BTP.DBConnection
 {
     internal class databaseConnection
     {
-        public async Task DatabaseCommand(string SQLCommand)
+        public async Task DatabaseCommand(string SQLCommand, Dictionary<string, object> parameters)
         {
-            MySqlConnection myConnection = null; 
-            string myConnectionString;
-            myConnectionString = "server=127.0.0.1;uid=root;pwd=12345;database=test";
+            string myConnectionString = "server=127.0.0.1;uid=root;pwd=;database=tydzien_postaci";
 
-            try
+            using (var myConnection = new MySqlConnection(myConnectionString))
             {
-                myConnection = new MySqlConnection(myConnectionString);
-                await myConnection.OpenAsync();
+                try
+                {
+                    await myConnection.OpenAsync();
 
-                MySqlCommand myCommand = new MySqlCommand
+                    using (var myCommand = new MySqlCommand(SQLCommand, myConnection))
+                    {
+                        if (parameters != null)
+                        {
+                            foreach (var param in parameters)
+                            {
+                                myCommand.Parameters.AddWithValue(param.Key, param.Value);
+                            }
+                        }
+
+                        await myCommand.ExecuteNonQueryAsync();
+                    }
+                }
+                catch (MySqlException ex)
                 {
-                    Connection = myConnection,
-                    CommandText = SQLCommand
-                };
-            }
-            catch (MySqlException ex)
-            {
-                System.Console.WriteLine("Error: " + ex.Message);
-            }
-            finally
-            {
-                if (myConnection != null && myConnection.State == System.Data.ConnectionState.Open)
-                {
-                    await myConnection.CloseAsync();
+                    Console.WriteLine("Błąd MySQL: " + ex.Message);
                 }
             }
+        }
+        public async Task<MySqlDataReader> ExecuteReaderAsync(string SQLCommand, Dictionary<string, object> parameters)
+        {
+            string myConnectionString = "server=127.0.0.1;uid=root;pwd=;database=tydzien_postaci";
+
+            var myConnection = new MySqlConnection(myConnectionString);
+            await myConnection.OpenAsync();
+
+            var myCommand = new MySqlCommand(SQLCommand, myConnection);
+
+            if (parameters != null)
+            {
+                foreach (var param in parameters)
+                {
+                    myCommand.Parameters.AddWithValue(param.Key, param.Value);
+                }
+            }
+
+            return await myCommand.ExecuteReaderAsync(System.Data.CommandBehavior.CloseConnection);
         }
     }
 }
